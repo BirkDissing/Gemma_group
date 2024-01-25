@@ -1,0 +1,10 @@
+https://ucph-ku.zoom.us/j/4972751953?pwd=ZnpZTWZLU2xVcWJremplZUM5eFFLUT09
+
+regularisation, pca, svd
+
+rich regression (l2 regularisering)
+
+l1 regularisering
+
+https://www.statsmodels.org/stable/generated/statsmodels.regression.linear_model.OLS.html#statsmodels.regression.linear_model.OLS
+
