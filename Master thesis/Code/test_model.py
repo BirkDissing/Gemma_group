@@ -137,57 +137,129 @@ def print_forces(a=mol, md=True):
     df.loc[len(df)] = row
     df.to_csv("Moldyn_dataframe_for.csv")
 
-traj = TrajectoryWriter("EtOH_moldyn_for.traj", "w", mol)
+traj = TrajectoryWriter("Model_test_traj.traj", "w", mol)
 
 
 def write_to_xyz(a=mol):
     if world.rank == 0:
         write("EtOH_moldyn_for.xyz", a, append = True)
 
-for i in range(n_time_steps):
-    if i==0 or i%pred_step!=0:
-        md = True
-        dyn.run(1)
+# for i in range(n_time_steps):
+#     if i==0 or i%pred_step!=0:
+#         md = True
+#         dyn.run(1)
+#     else:
+#         md = False
+#         predicted_forces = predict_forces()
+#         for i in range(pred_step):
+#             #Get masses for the atoms in the molecule
+#             masses = mol.get_masses()[:, np.newaxis]
+
+#             #Get the forces, momenta, and positions for the current step
+#             #forces = mol[i].get_forces()
+#             forces = predicted_forces[:,:,i] 
+#             p = mol.get_momenta()
+#             r = mol.get_positions()
+            
+#             #Calculate new momenta and positions
+#             p += 0.5 * dt * forces
+#             mol.set_positions(r + dt * p / masses)
+            
+
+#             #Was in ase.step. Unsure if needed
+#             if mol.constraints:
+#                 p = (mol.get_positions() - r) * masses / dt
+
+#             #Momenta needs to be stored before possible calculations of forces
+#             mol.set_momenta(p, apply_constraint=False)
+
+#             #Forces for next step is found either using predicted forces or gpaw calculator
+#             if i<pred_step-1:
+#                 forces = predicted_forces[:,:,i+1]
+#                 #forces = mol[i+1].get_forces()
+#             else:
+#                 #print("Get forces from calculator")
+#                 forces = mol.get_forces(md=True)
+            
+
+#             #Calculate and set momenta for the next step
+#             mol.set_momenta(mol.get_momenta() + 0.5 * dt * forces)
+
+#     print_forces(md=md)
+#     if world.rank ==0:
+#         write(file, mol, append = True)
+#     traj.write()
+        
+for i in range(6):
+    dyn.run(1)
+    print_forces()
+    
+    write(file, mol, append = True)
+    traj.write()
+file2 = "moldyn_test.xyz"
+if world.rank == 0:
+        write(file2, mol)
+
+mol2 = read(file2, index='-1')
+mol2.set_calculator(calc)
+mol2.center(vacuum=10)
+mol2.set_pbc(True)
+# Set the momenta corresponding to T=300K
+MaxwellBoltzmannDistribution(mol2, temperature_K=T)
+ 
+# We want to run MD with constant energy using the VelocityVerlet algorithm.
+dyn2 = VelocityVerlet(mol2, dt)  
+traj2 = TrajectoryWriter("model_test_traj2.traj", "w", mol2)
+predicted_forces = predict_forces()
+for i in range(pred_step):
+    #Get masses for the atoms in the molecule
+    masses = mol.get_masses()[:, np.newaxis]
+
+    #Get the forces, momenta, and positions for the current step
+    #forces = mol[i].get_forces()
+    forces = predicted_forces[:,:,i] 
+    p = mol.get_momenta()
+    r = mol.get_positions()
+    
+    #Calculate new momenta and positions
+    p += 0.5 * dt * forces
+    mol.set_positions(r + dt * p / masses)
+    
+
+    #Was in ase.step. Unsure if needed
+    if mol.constraints:
+        p = (mol.get_positions() - r) * masses / dt
+
+    #Momenta needs to be stored before possible calculations of forces
+    mol.set_momenta(p, apply_constraint=False)
+
+    #Forces for next step is found either using predicted forces or gpaw calculator
+    if i<pred_step-1:
+        forces = predicted_forces[:,:,i+1]
+        #forces = mol[i+1].get_forces()
     else:
-        md = False
-        predicted_forces = predict_forces()
-        for i in range(pred_step):
-            #Get masses for the atoms in the molecule
-            masses = mol.get_masses()[:, np.newaxis]
+        #print("Get forces from calculator")
+        forces = mol.get_forces(md=True)
+    
 
-            #Get the forces, momenta, and positions for the current step
-            #forces = mol[i].get_forces()
-            forces = predicted_forces[:,:,i] 
-            p = mol.get_momenta()
-            r = mol.get_positions()
-            
-            #Calculate new momenta and positions
-            p += 0.5 * dt * forces
-            mol.set_positions(r + dt * p / masses)
-            
+    #Calculate and set momenta for the next step
+    mol.set_momenta(mol.get_momenta() + 0.5 * dt * forces)
+    print_forces(md=False)
+    if world.rank == 0:
+        write(file, mol, append = True)
 
-            #Was in ase.step. Unsure if needed
-            if mol.constraints:
-                p = (mol.get_positions() - r) * masses / dt
 
-            #Momenta needs to be stored before possible calculations of forces
-            mol.set_momenta(p, apply_constraint=False)
-
-            #Forces for next step is found either using predicted forces or gpaw calculator
-            if i<pred_step-1:
-                forces = predicted_forces[:,:,i+1]
-                #forces = mol[i+1].get_forces()
-            else:
-                #print("Get forces from calculator")
-                forces = mol.get_forces(md=True)
-            
-
-            #Calculate and set momenta for the next step
-            mol.set_momenta(mol.get_momenta() + 0.5 * dt * forces)
-
-    print_forces(md=md)
-    if world.rank ==0:
+for i in range(6):
+    dyn.run(1)
+    print_forces()
+    if world.rank == 0:
         write(file, mol, append = True)
     traj.write()
+
+for i in range(6+pred_step):
+    dyn2.run(1)
+    if world.rank == 0:
+        write(file2, mol2, append = True)
+    traj2.write()
     
 
